@@ -1,12 +1,14 @@
-import urllib
+from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
-from urlutils import urlencode_no_plus
+from .urlutils import urlencode_no_plus
+import datetime
+
 
 class Game(object):
 
     def __init__(self, id, title, release_date=None, platform=None, overview=None, esrb_rating=None,
                  genres=None, players=None, coop=None, youtube_url=None, publisher=None, developer=None, rating=None,
-                 logo_url=None):
+                 thumb_url=None):
         self.id = id
         self.title = title
         self.release_date = release_date
@@ -20,11 +22,12 @@ class Game(object):
         self.publisher = publisher
         self.developer = developer
         self.rating = rating
-        self.logo_url = logo_url
+        self.thumb_url = thumb_url
+
 
 class Platform(object):
 
-    def __init__(self, id, name, alias=None, console=None, controller=None, graphics=None, max_controllers=None,rating=None,
+    def __init__(self, id, name, alias=None, console=None, controller=None, graphics=None, max_controllers=None, rating=None,
                  display=None, manufacturer=None, cpu=None, memory=None, sound=None, media=None, developer=None,
                  overview=None):
         self.id = id
@@ -44,11 +47,15 @@ class Platform(object):
         self.max_controllers = max_controllers
         self.rating = rating
 
+
 class APIException(Exception):
+
     def __init__(self, msg):
         self.msg = msg
+
     def __str__(self):
         return self.msg
+
 
 class API(object):
 
@@ -57,12 +64,15 @@ class API(object):
         # api_url is expected to be the fully constructed URL, with any needed arguments appended.
         # This function will simply make the call, and return the response as an ElementTree object for parsing,
         # If response cannot be parsed because it is not valid XML, this function assumes an API error and raises an
-        # APIException, passing forward the pages contents (which generally gives some indication of the error.
+        # APIException, passing forward the pages contents (which generally
+        # gives some indication of the error.
         if query_args is not None:
             get_params = urlencode_no_plus.urlencode_no_plus(query_args)
-            response = urllib.urlopen(api_url+'%s' % get_params)
+            req = Request(api_url + '{0}'.format(get_params),
+                          headers={'User-Agent': 'Mozilla/5.0'})
         else:
-            response = urllib.urlopen(api_url)
+            req = Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
+        response = urlopen(req)
         page = response.read()
 
         # Make sure the XML Parser doesn't return a ParsError.  If it does, it's probably and API Issue, so raise an
@@ -71,7 +81,7 @@ class API(object):
             xml_response = ET.fromstring(page)
         except ET.ParseError:
             raise APIException(page)
-        return  xml_response
+        return xml_response
 
     def get_platforms_list(self):
         platforms_list = []
@@ -85,16 +95,19 @@ class API(object):
                     platform_name = subelement.text
                 if subelement.tag == 'alias':
                     platform_alias = subelement.text
-            platforms_list.append(Platform(platform_id, platform_name, alias=platform_alias))
+            platforms_list.append(
+                Platform(platform_id, platform_name, alias=platform_alias))
 
         return platforms_list
 
     def get_platform(self, id):
-        # TODO Add support for fetching platform images under the <Images> element
+        # TODO Add support for fetching platform images under the <Images>
+        # element
         GET_PLATFORM_ENDPOINT = 'http://thegamesdb.net/api/GetPlatform.php?'
         query_args = {'id': id}
         xml_response = self.make_call(GET_PLATFORM_ENDPOINT, query_args)
-        # TODO These are all optional fields.  There's probably a better way to handle this than setting them all to None.
+        # TODO These are all optional fields.  There's probably a better way to
+        # handle this than setting them all to None.
         platform_id = None
         platform_name = None
         platform_console = None
@@ -143,7 +156,8 @@ class API(object):
                 if subelement.tag == 'rating':
                     platform_rating = subelement.text
         if (platform_id == None or platform_name == None):
-            raise APIException("get_platform returned a result without required fields id or platform")
+            raise APIException(
+                "get_platform returned a result without required fields id or platform")
         return Platform(platform_id, platform_name, console=platform_console, controller=platform_controller,
                         graphics=platform_graphics, max_controllers=platform_max_controllers, rating=platform_rating,
                         display=platform_display, manufacturer=platform_manufacturer, cpu=platform_cpu,
@@ -153,7 +167,8 @@ class API(object):
     def get_platform_games(self, platform_id):
         GET_PLATFORM_GAMES_LIST_ENDPOINT = 'http://thegamesdb.net/api/GetPlatformGames.php?'
         query_args = {'platform': platform_id}
-        xml_response = self.make_call(GET_PLATFORM_GAMES_LIST_ENDPOINT, query_args)
+        xml_response = self.make_call(
+            GET_PLATFORM_GAMES_LIST_ENDPOINT, query_args)
         platform_games_list = []
         for element in xml_response.iter(tag="Game"):
             platform_games_list_release_date = None
@@ -164,14 +179,16 @@ class API(object):
                     platform_games_list_name = subelement.text
                 if subelement.tag == 'ReleaseDate':
                     # platform_games_list_release_date = datetime.strptime(subelement.text, "%m/%d/%Y")
-                    # Omitting line above since date comes back in an inconsistent format, for example only %Y
+                    # Omitting line above since date comes back in an
+                    # inconsistent format, for example only %Y
                     platform_games_list_release_date = subelement.text
             platform_games_list.append(Game(platform_games_list_id, platform_games_list_name,
                                             release_date=platform_games_list_release_date))
         return platform_games_list
 
     def get_game(self, id=None, name=None, platform=None):
-        if id is not None and name is not None:  # One of these arguments must be passed
+        # One of these arguments must be passed
+        if id is not None and name is not None:
             return None
         else:
             query_args = {}
@@ -202,45 +219,49 @@ class API(object):
             for subelement in element:
                 if subelement.tag == 'id':
                     game_id = subelement.text
-                if subelement.tag == 'GameTitle':
+                elif subelement.tag == 'GameTitle':
                     game_title = subelement.text
-                if subelement.tag == 'Platform':
+                elif subelement.tag == 'Platform':
                     game_platform = subelement.text
-                if subelement.tag == 'ReleaseDate':
-                    # games_release_date = datetime.strptime(subelement.text, "%m/%d/%Y")
-                    game_release_date = subelement.text
-                if subelement.tag == 'Overview':
+                elif subelement.tag == 'ReleaseDate':
+                    game_release_date = datetime.datetime.strptime(subelement.text, "%m/%d/%Y").date()
+                elif subelement.tag == 'Overview':
                     game_overview = subelement.text
-                if subelement.tag == 'ESRB':
+                elif subelement.tag == 'ESRB':
                     game_esrb_rating = subelement.text
-                if subelement.tag == 'Genres':
-                    game_genres = ''
+                elif subelement.tag == 'Genres':
+                    game_genres = []
                     for genre_element in subelement.iter(tag="genre"):
-                        # TODO put elements in a more appropriate data structure
-                        game_genres += genre_element.text
-                if subelement.tag == 'Players':
+                        # TODO put elements in a more appropriate data
+                        # structure
+                        game_genres.append(genre_element)
+                elif subelement.tag == 'Players':
                     game_players = subelement.text
-                if subelement.tag == 'Co-op':
+                elif subelement.tag == 'Co-op':
                     if subelement.text == 'No':
                         game_coop = False
                     elif subelement.text == 'Yes':
                         game_coop = True
-                if subelement.tag == 'Youtube':
+                elif subelement.tag == 'Youtube':
                     game_youtube_url = subelement.text
-                if subelement.tag == 'Publisher':
+                elif subelement.tag == 'Publisher':
                     game_publisher = subelement.text
-                if subelement.tag == 'Developer':
+                elif subelement.tag == 'Developer':
                     game_developer = subelement.text
-                if subelement.tag == 'Rating':
+                elif subelement.tag == 'Rating':
                     game_rating = subelement.text
-                if subelement.tag == 'clearlogo':
+                elif subelement.tag == 'Images':
+                    for s in subelement:
+                        if s.tag == 'boxart' and s.attrib['side'] == 'front':
+                            game_thumb_url = game_base_img_url + s.attrib['thumb']
                     # TODO Capture image dimensions from API resposne
-                    game_logo_url = game_base_img_url + subelement.text
+                    # game_logo_url = game_base_img_url + subelement.text
+
             games_list.append(Game(game_id, game_title, release_date=game_release_date, platform=game_platform,
-                               overview=game_overview, esrb_rating=game_esrb_rating, genres=game_genres,
-                               players=game_players, coop=game_coop, youtube_url=game_youtube_url,
-                               publisher=game_publisher, developer=game_developer, rating=game_rating,
-                               logo_url=game_logo_url))
+                                   overview=game_overview, esrb_rating=game_esrb_rating, genres=game_genres,
+                                   players=game_players, coop=game_coop, youtube_url=game_youtube_url,
+                                   publisher=game_publisher, developer=game_developer, rating=game_rating,
+                                   thumb_url=game_thumb_url))
 
         if len(games_list) == 0:
             return None
@@ -249,8 +270,10 @@ class API(object):
         else:
             return games_list
 
-    def get_games_list(self, name, platform=None, genre=None):
-        query_args = {'name': name}
+    def get_games_list(self, name=None, platform=None, genre=None):
+        query_args = []
+        if name is not None:
+            query_args['name'] = name
         if platform is not None:
             query_args['platform'] = platform
         if genre is not None:
@@ -270,11 +293,6 @@ class API(object):
                     game_release_date = subelement.text
                 if subelement.tag == 'Platform':
                     game_platform = subelement.text
-            games_list.append(Game(game_id, game_title, release_date=game_release_date, platform=game_platform))
+            games_list.append(
+                Game(game_id, game_title, release_date=game_release_date, platform=game_platform))
         return games_list
-
-
-
-
-
-

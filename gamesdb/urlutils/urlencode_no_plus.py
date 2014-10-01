@@ -47,14 +47,14 @@ def urlencode_no_plus(query, doseq=0):
             # preserved for consistency
         except TypeError:
             ty,va,tb = sys.exc_info()
-            raise TypeError, "not a valid non-string sequence or mapping object", tb
+            raise TypeError.with_traceback(tb)
 
     l = []
     if not doseq:
         # preserve old behavior
         for k, v in query:
-            k = urllib.quote(str(k))
-            v = urllib.quote(str(v))
+            k = urllib.parse.quote(str(k))
+            v = urllib.parse.quote(str(v))
             l.append(k + '=' + v)
     else:
         for k, v in query:
