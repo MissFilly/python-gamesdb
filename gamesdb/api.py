@@ -224,7 +224,10 @@ class API(object):
                 elif subelement.tag == 'Platform':
                     game_platform = subelement.text
                 elif subelement.tag == 'ReleaseDate':
-                    game_release_date = datetime.datetime.strptime(subelement.text, "%m/%d/%Y").date()
+                    try:
+                        game_release_date = datetime.datetime.strptime(subelement.text, '%m/%d/%Y').date()
+                    except (ValueError):
+                        game_release_date = subelement.text
                 elif subelement.tag == 'Overview':
                     game_overview = subelement.text
                 elif subelement.tag == 'ESRB':
@@ -271,7 +274,7 @@ class API(object):
             return games_list
 
     def get_games_list(self, name=None, platform=None, genre=None):
-        query_args = []
+        query_args = {}
         if name is not None:
             query_args['name'] = name
         if platform is not None:
@@ -287,11 +290,11 @@ class API(object):
             for subelement in element:
                 if subelement.tag == 'id':
                     game_id = subelement.text
-                if subelement.tag == 'GameTitle':
+                elif subelement.tag == 'GameTitle':
                     game_title = subelement.text
-                if subelement.tag == 'ReleaseDate':
+                elif subelement.tag == 'ReleaseDate':
                     game_release_date = subelement.text
-                if subelement.tag == 'Platform':
+                elif subelement.tag == 'Platform':
                     game_platform = subelement.text
             games_list.append(
                 Game(game_id, game_title, release_date=game_release_date, platform=game_platform))
