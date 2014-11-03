@@ -216,6 +216,7 @@ class API(object):
             game_genres = None
             game_publisher = None
             game_developer = None
+            game_thumb_url = None
             for subelement in element:
                 if subelement.tag == 'id':
                     game_id = subelement.text
